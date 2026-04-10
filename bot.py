@@ -1,7 +1,8 @@
 import asyncio
 import csv
-import os
 from pathlib import Path
+from openai import OpenAI
+import os
 
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
@@ -23,6 +24,7 @@ from aiogram.types import (
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8666414561:AAG52ftogficyXMVGNGzHPE5YQn65KlUZkY")
 CSV_FILE = Path(__file__).parent / "universities.csv"
 
+client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 # ── Data loading ──────────────────────────────────────────────────────────────
 
 def load_data() -> list[dict]:
@@ -144,6 +146,8 @@ async def cmd_help(msg: Message, state: FSMContext):
         "Use /start to return to the main menu.",
         reply_markup=MAIN_MENU,
     )
+    
+
 
 
 # ── Search by Field ───────────────────────────────────────────────────────────
@@ -213,16 +217,6 @@ async def all_universities(msg: Message, state: FSMContext):
     await msg.answer(text, reply_markup=MAIN_MENU)
 
 
-# ── Fallback ──────────────────────────────────────────────────────────────────
-
-@dp.message()
-async def fallback(msg: Message, state: FSMContext):
-    await state.clear()
-    await msg.answer(
-        "❓ I didn't understand that. Please use the menu below 👇",
-        reply_markup=MAIN_MENU,
-    )
-
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -233,3 +227,57 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+    
+    
+    
+# ---ask-ai---
+def ask_ai(user_input: str, data_sample: list[dict]) -> str:
+    context = "\n".join([
+        f"{d['university']} - {d['faculty']} - {d['city']} - ${d['tuition_usd']}"
+        for d in data_sample[:15]
+    ])
+
+    prompt = f"""
+You are a university advisor in Uzbekistan.
+
+User request:
+{user_input}
+
+Available data:
+{context}
+
+Recommend suitable universities and explain briefly.
+"""
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[{"role": "user", "content": prompt}]
+    )
+
+    return response.choices[0].message.content
+    
+@dp.message()
+async def ai_handler(msg: Message, state: FSMContext):
+    await state.clear()
+
+    text = msg.text
+
+    # ignore menu buttons
+    if text in [
+        "🔍 Search by Field",
+        "🏛 Search by University",
+        "📋 All Universities",
+        "ℹ️ Help"
+    ]:
+        return
+
+    await msg.answer("🤖 Thinking...")
+    try:
+        loop = asyncio.get_event_loop()
+        reply = await loop.run_in_executor(None, ask_ai, text, DATA)
+        
+        await msg.answer(reply)
+        
+    except Exception as e:
+        print("AI ERROR:", repr(e))
+        await msg.answer("⚠️ AI error.")
