@@ -21,7 +21,7 @@ from openai import AsyncOpenAI
 
 #  Config
 BOT_TOKEN = os.getenv("BOT_TOKEN", "8666414561:AAG52ftogficyXMVGNGzHPE5YQn65KlUZkY")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "YOUR_OPENAI_API_KEY_HERE")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "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")
 CSV_FILE = Path(__file__).parent / "universities.csv"
 
 openai_client = AsyncOpenAI(api_key=OPENAI_API_KEY)
